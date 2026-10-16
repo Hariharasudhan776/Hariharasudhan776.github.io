@@ -83,3 +83,9 @@
   },{passive:true}));
   document.querySelectorAll('.mobile-menu a').forEach(link=>link.addEventListener('click',()=>{const menu=link.closest('details');if(menu)menu.open=false;}));
 })();
+
+document.getElementById('copy-portfolio')?.addEventListener('click', async () => {
+  const button=document.getElementById('copy-portfolio'), status=document.getElementById('copy-status');
+  try { await navigator.clipboard.writeText('https://hariharasudhan776.github.io/'); button.textContent='LINK COPIED ✓'; status.textContent='Personal portfolio link copied.'; }
+  catch { status.textContent='Copy this address: https://hariharasudhan776.github.io/'; }
+});
