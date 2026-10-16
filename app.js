@@ -35,6 +35,21 @@
   dialog.addEventListener('close', restore);
   dialog.addEventListener('click', event => { if (event.target === dialog) { const rect = dialog.getBoundingClientRect(); if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) dialog.close(); } });
 
+  // A native-scroll film: each beat changes the composition, not the scroll behavior.
+  const film = document.querySelector('.film');
+  let storyProgress = 0, visualStoryProgress = 0, storyRedraw = () => {}, storyFrame = 0, activeBeat = 0;
+  const beats = [
+    {act:'ACT I',kicker:'UNDERSTAND THE PROBLEM',title:['First, a','real problem.'],description:'I’m Hariharasudhan. I build business software, starting with the people who need it and the problems worth solving.'},
+    {act:'ACT II',kicker:'ENGINEER THE FOUNDATION',title:['Then, the','hard questions.'],description:'Who can change a budget? What happens when a transaction fails? I work through the rules, the data, and the exceptions.'},
+    {act:'ACT III',kicker:'MAKE THE COMPLEXITY DISAPPEAR',title:['Make complexity','feel simple.'],description:'A clear interface is the visible part. Behind it: permissions, validation, queries, and the decisions that make a workflow usable.'},
+    {act:'ACT IV',kicker:'FOLLOW THROUGH',title:['Build it.','Own the outcome.'],description:'From implementation and testing to documentation and support. Below are the projects, and the reasoning behind them.'}
+  ];
+  if (film) {
+    const filmStage=film.querySelector('.film-stage'),filmText=film.querySelector('.film-text');
+    function updateStory(){storyFrame=0;const box=film.getBoundingClientRect();storyProgress=motionQuery.matches?0:Math.max(0,Math.min(1,-box.top/Math.max(1,film.offsetHeight-innerHeight)));filmStage.style.setProperty('--film-progress',storyProgress.toFixed(4));const next=Math.min(3,Math.floor(storyProgress*4));if(next!==activeBeat){activeBeat=next;const beat=beats[next];film.querySelector('.film-act').textContent=beat.act;film.querySelector('.film-kicker').textContent=beat.kicker;const title=film.querySelector('.film-title');title.replaceChildren(document.createTextNode(beat.title[0]),document.createElement('br'),text('em',beat.title[1]));film.querySelector('.film-description').textContent=beat.description;film.querySelectorAll('.film-step').forEach((el,i)=>el.classList.toggle('active',i===next));if(!motionQuery.matches)filmText.animate([{opacity:.2,transform:'translateY(12px)'},{opacity:1,transform:'translateY(0)'}],{duration:650,easing:'cubic-bezier(.2,.7,.3,1)'});}storyRedraw();}
+    const queueStory=()=>{if(!storyFrame)storyFrame=requestAnimationFrame(updateStory);};
+    addEventListener('scroll',queueStory,{passive:true});addEventListener('resize',queueStory,{passive:true});motionQuery.addEventListener('change',queueStory);updateStory();
+  }
   // A small original WebGL sculpture. No 3D downloads or framework runtime.
   const canvas = document.getElementById('sculpture');
   const control = document.getElementById('motion-toggle');
@@ -60,13 +75,14 @@
     for(let i=0;i<segments;i++)for(let j=0;j<sides;j++){const a=point(i,j),b=point(i+1,j),c=point(i+1,j+1),d=point(i,j+1);for(const q of [a,b,c,a,c,d]){positions.push(...q.p);normals.push(...q.n);}}
     const p=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,p);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(positions),gl.STATIC_DRAW);const n=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,n);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(normals),gl.STATIC_DRAW);return {p,n,count:positions.length/3};
   };
-  const rings=[{mesh:torus(1.35,.18),color:[.19,.25,.18],x:.25,y:.25,z:-.28},{mesh:torus(1.10,.13),color:[.68,.83,.30],x:1.20,y:.75,z:.28},{mesh:torus(.84,.17),color:[.62,.27,.17],x:.55,y:1.35,z:-.1}];
+  const rings=[{mesh:torus(1.35,.18),color:film?[.49,.57,.42]:[.19,.25,.18],x:.25,y:.25,z:-.28},{mesh:torus(1.10,.13),color:[.68,.83,.30],x:1.20,y:.75,z:.28},{mesh:torus(.84,.17),color:[.62,.27,.17],x:.55,y:1.35,z:-.1}];
   const locations={position:gl.getAttribLocation(program,'aPosition'),normal:gl.getAttribLocation(program,'aNormal'),model:gl.getUniformLocation(program,'uModel'),projection:gl.getUniformLocation(program,'uProjection'),view:gl.getUniformLocation(program,'uView'),color:gl.getUniformLocation(program,'uColor')};
   gl.enableVertexAttribArray(locations.position);gl.enableVertexAttribArray(locations.normal);
   const view=identity();view[14]=-5.85;view[13]=-.05;gl.uniformMatrix4fv(locations.view,false,view);
   function resize(){ const rect=canvas.getBoundingClientRect(),ratio=Math.min(devicePixelRatio||1,1.6);const w=Math.round(rect.width*ratio),h=Math.round(rect.height*ratio);if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;const aspect=w/Math.max(h,1);gl.viewport(0,0,w,h);gl.uniformMatrix4fv(locations.projection,false,perspective(aspect));view[14]=-Math.max(5.85,1.68/(Math.tan(.325)*aspect)*1.08);gl.uniformMatrix4fv(locations.view,false,view);} }
-  function draw(time){frame=0;resize();if(last && !paused)elapsed+=Math.min((time-last)/1000,.05);last=time;gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);const t=elapsed;const root=multiply(rotateY(yaw+t*.055),rotateX(pitch));rings.forEach((ring,i)=>{let model=multiply(root,multiply(rotateZ(ring.z+Math.sin(t*.14+i)*.12),multiply(rotateY(ring.y+Math.sin(t*.19+i)*.16),rotateX(ring.x+Math.cos(t*.15+i)*.13))));model[13]=Math.sin(t*.35)*.045+.08;gl.uniformMatrix4fv(locations.model,false,model);gl.uniform3fv(locations.color,ring.color);gl.bindBuffer(gl.ARRAY_BUFFER,ring.mesh.p);gl.vertexAttribPointer(locations.position,3,gl.FLOAT,false,0,0);gl.bindBuffer(gl.ARRAY_BUFFER,ring.mesh.n);gl.vertexAttribPointer(locations.normal,3,gl.FLOAT,false,0,0);gl.drawArrays(gl.TRIANGLES,0,ring.mesh.count);});if(!paused && visible && !document.hidden)frame=requestAnimationFrame(draw);}
+  function draw(time){frame=0;resize();if(last && !paused)elapsed+=Math.min((time-last)/1000,.05);last=time;gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);const t=elapsed;visualStoryProgress=motionQuery.matches?storyProgress:visualStoryProgress+(storyProgress-visualStoryProgress)*.075;const progress=film?visualStoryProgress:0;const separation=Math.sin(progress*Math.PI)*.72;const root=multiply(rotateY(yaw+t*.055+progress*1.6),rotateX(pitch+progress*.35));rings.forEach((ring,i)=>{let model=multiply(root,multiply(rotateZ(ring.z+Math.sin(t*.14+i)*.12+progress*(i-1)*.4),multiply(rotateY(ring.y+Math.sin(t*.19+i)*.16),rotateX(ring.x+Math.cos(t*.15+i)*.13))));model[12]=(i-1)*separation*.45;model[13]=Math.sin(t*.35)*.045+.08+(i-1)*separation*.65;model[14]=(i-1)*separation*.3;gl.uniformMatrix4fv(locations.model,false,model);gl.uniform3fv(locations.color,ring.color);gl.bindBuffer(gl.ARRAY_BUFFER,ring.mesh.p);gl.vertexAttribPointer(locations.position,3,gl.FLOAT,false,0,0);gl.bindBuffer(gl.ARRAY_BUFFER,ring.mesh.n);gl.vertexAttribPointer(locations.normal,3,gl.FLOAT,false,0,0);gl.drawArrays(gl.TRIANGLES,0,ring.mesh.count);});if((!paused||Math.abs(storyProgress-visualStoryProgress)>.001) && visible && !document.hidden)frame=requestAnimationFrame(draw);}
   function requestDraw(){if(!frame){last=0;frame=requestAnimationFrame(draw);}}
+  storyRedraw=requestDraw;
   function updateControl(){control.setAttribute('aria-pressed',String(paused));control.replaceChildren(document.createTextNode(paused?'Play motion ':'Pause motion '));const icon=document.createElement('span');icon.textContent=paused?'▷':'Ⅱ';control.append(icon);}
   control.addEventListener('click',()=>{paused=!paused;updateControl();requestDraw();});
   motionQuery.addEventListener('change',event=>{paused=event.matches;updateControl();requestDraw();});
