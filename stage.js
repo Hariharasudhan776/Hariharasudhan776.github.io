@@ -59,7 +59,7 @@
         const next=cards[index+1];
         const overlap=next ? Math.max(0,Math.min(1,(innerHeight*.78-next.getBoundingClientRect().top)/(innerHeight*.62))) : 0;
         card.style.transform=`scale(${1-overlap*.035})`;
-        card.style.filter=`brightness(${1-overlap*.12})`;
+        card.style.filter="";
       });
     } else cards.forEach(card=>{card.style.transform='';card.style.filter='';});
   }
