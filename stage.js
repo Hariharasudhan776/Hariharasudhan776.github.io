@@ -19,22 +19,40 @@
   Object.assign(cases, {"android": {"label": "MOBILE / ENTERPRISE", "title": "Android Erp Access", "tags": ["Java / Android", "C# / ASP.NET", "HTML / CSS / JS"], "problem": "Access operational workflows from a phone without recreating the entire ERP as a separate native application.", "approach": "Build a Java WebView shell around mobile-friendly ERP pages, with C# / ASP.NET services for device registration and activation.", "decisions": ["Keep mobile access connected to the existing business system.", "Design pages around touch, readable forms and smaller screens.", "Treat device activation and access checks as application behavior."], "boundary": "Enterprise work summarized at a functional level. No private code, financial records, customer data or internal infrastructure are published. Features and deployment vary by module.", "link": null}, "reports": {"label": "DATA / COST & MANAGEMENT REPORTING", "title": "Cost & Business Intelligence", "tags": ["SQL / PL/SQL", "ASP.NET", "JavaScript", "Power BI"], "problem": "Teams need a usable view of costs and business performance across data maintained by different workflows.", "approach": "Build cost reporting and department-specific analytical views; investigate the underlying costing rules and data quality when totals need explanation.", "decisions": ["Keep cost, sales, profit and income definitions explicit in each report.", "Trace reported totals to source transactions and filtering rules.", "Investigate costing and data-quality issues before interpreting a chart."], "boundary": "Enterprise work summarized at a functional level. No private code, financial records, customer data or internal infrastructure are published. Features and deployment vary by module.", "link": null}, "departments": {"label": "OPERATIONS / DEPARTMENT DASHBOARDS", "title": "One Business. Many Lenses.", "tags": ["C# / ASP.NET", "Oracle", "JavaScript"], "problem": "A generic dashboard does not answer the different questions asked by finance, quality, safety and project teams.", "approach": "Create department-oriented dashboard views with relevant filters, reporting context and access controls. QA/QC and HSE work sit alongside finance, purchase, HR and QS reporting.", "decisions": ["Shape the view around the department\u2019s operational questions.", "Apply existing access boundaries to underlying data.", "Make selected dates, filters and reporting context visible."], "boundary": "Enterprise work summarized at a functional level. No private code, financial records, customer data or internal infrastructure are published. Features and deployment vary by module.", "link": null}, "notifications": {"label": "WORKFLOW / APPROVAL NOTIFICATIONS", "title": "Approvals That Reach People.", "tags": ["C# / .NET", "Python", "HTML email"], "problem": "Approvers need enough context to understand a material request and return to the ERP to act.", "approach": "Build an approval notification service, following a Python prototype, with role-based recipients and requisition details in the message.", "decisions": ["Keep the ERP as the place where approval actions are recorded.", "Support variable item counts and different mail-client layouts.", "Show the current approval context and relevant request details."], "boundary": "Enterprise work summarized at a functional level. No private code, financial records, customer data or internal infrastructure are published. Features and deployment vary by module.", "link": null}, "credit": {"label": "BUSINESS RULES / CUSTOMER CREDIT", "title": "Credit Controls In The Flow.", "tags": ["Oracle PL/SQL", "ERP workflows"], "problem": "Credit rules need to apply consistently as customer transactions move through the business.", "approach": "Connect database checks and ERP workflows to credit limits, transaction conditions and exception approvals.", "decisions": ["Enforce business checks beyond the visual interface.", "Keep ordinary processing separate from exception authority.", "Make the reason for a held transaction understandable."], "boundary": "Enterprise work summarized at a functional level. No private code, financial records, customer data or internal infrastructure are published. Features and deployment vary by module.", "link": null}, "government": {"label": "ENTERPRISE / PREVIOUS EXPERIENCE", "title": "Government Workflow Systems", "tags": ["Enterprise applications", "SQL", "Reporting"], "problem": "Administrative teams need structured workflows to monitor commitments, projects and decisions.", "approach": "Contribute application modules, database reporting, onboarding data loads and support for government workflow systems.", "decisions": ["Translate operational requirements into forms and workflow states.", "Align reports with the underlying records.", "Support deployment, maintenance and changing client requirements."], "boundary": "Enterprise work summarized at a functional level. No private code, financial records, customer data or internal infrastructure are published. Features and deployment vary by module.", "link": null}});
   const dialog = document.getElementById('case-dialog');
   const content = document.getElementById('case-content');
-  let trigger;
+  let trigger, expandedCard, closing = false;
   const text = (tag, value, className) => { const el = document.createElement(tag); el.textContent = value; if (className) el.className = className; return el; };
   document.querySelectorAll('[data-open]').forEach(button => button.addEventListener('click', () => {
     const item = cases[button.dataset.open]; if (!item) return;
-    content.replaceChildren(); content.append(text('p', item.label, 'eyebrow'));
+    content.replaceChildren();
+    expandedCard=button.closest('.bento-card');
+    dialog.classList.toggle('bento-expanded',Boolean(expandedCard));
+    if(expandedCard){const visual=expandedCard.querySelector('.bento-visual').cloneNode(true);visual.classList.add('bento-dialog-visual');content.append(visual);}
+    content.append(text('p', item.label, 'eyebrow'));
     const title = text('h2', item.title); title.id = 'case-title'; content.append(title);
     const tags = document.createElement('div'); tags.className = 'tags'; item.tags.forEach(tag => tags.append(text('span', tag))); content.append(tags);
     content.append(text('h3', 'The problem'), text('p', item.problem), text('h3', 'The approach'), text('p', item.approach), text('h3', 'Engineering decisions'));
     const list = document.createElement('ul'); item.decisions.forEach(decision => list.append(text('li', decision))); content.append(list, text('h3', 'Context & boundaries'), text('p', item.boundary));
     if (item.link) { const link = text('a', 'Explore the repository ↗', 'button primary'); link.href = item.link; link.target = '_blank'; link.rel = 'noopener'; content.append(link); }
-    trigger = button; dialog.showModal(); document.body.style.overflow = 'hidden';
+    trigger = button; button.setAttribute('aria-expanded','true'); dialog.showModal(); document.body.style.overflow = 'hidden';
+    if(expandedCard&&!motionQuery.matches&&!document.body.classList.contains('pause-motion')){
+      const from=expandedCard.getBoundingClientRect(), to=dialog.getBoundingClientRect();
+      dialog.animate([{transform:`translate(${from.left+from.width/2-to.left-to.width/2}px,${from.top+from.height/2-to.top-to.height/2}px) scale(${from.width/to.width},${from.height/to.height})`,opacity:.5},{transform:'none',opacity:1}],{duration:480,easing:'cubic-bezier(.2,.8,.2,1)'});
+    }
   }));
-  const restore = () => { document.body.style.overflow = ''; trigger?.focus({ preventScroll: true }); };
-  dialog.querySelector('.dialog-close').addEventListener('click', () => dialog.close());
-  dialog.addEventListener('close', restore);
-  dialog.addEventListener('click', event => { if (event.target === dialog) { const rect = dialog.getBoundingClientRect(); if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) dialog.close(); } });
+  const restore = () => { document.body.style.overflow = ''; trigger?.setAttribute('aria-expanded','false'); trigger?.focus({ preventScroll: true }); dialog.classList.remove('bento-expanded'); expandedCard=null; closing=false; };
+  async function closeCase(){
+    if(closing||!dialog.open)return; closing=true;
+    if(expandedCard&&!motionQuery.matches&&!document.body.classList.contains('pause-motion')){
+      const from=dialog.getBoundingClientRect(),to=expandedCard.getBoundingClientRect();
+      try{await dialog.animate([{transform:'none',opacity:1},{transform:`translate(${to.left+to.width/2-from.left-from.width/2}px,${to.top+to.height/2-from.top-from.height/2}px) scale(${to.width/from.width},${to.height/from.height})`,opacity:0}],{duration:260,easing:'cubic-bezier(.4,0,1,1)'}).finished;}catch{}
+    }
+    dialog.close();
+  }
+  dialog.querySelector('.dialog-close').addEventListener('click',closeCase);
+  dialog.addEventListener('cancel',event=>{event.preventDefault();closeCase();});
+  dialog.addEventListener('close',restore);
+  dialog.addEventListener('click', event => { if(event.target===dialog){const rect=dialog.getBoundingClientRect();if(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom)closeCase();} });
+
 
   // Small, bounded motion tied to the actual page rather than an endless render loop.
   const reduced = matchMedia('(prefers-reduced-motion: reduce)');
